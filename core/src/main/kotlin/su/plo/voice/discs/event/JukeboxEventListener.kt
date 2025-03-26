@@ -122,6 +122,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
 
         block.asJukebox()?.takeIf { it.isPlaying } ?: return
 
+        loopingBlocks.remove(block)
         jobByBlock.remove(block)?.cancel()
     }
 
@@ -151,13 +152,10 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         block: Block,
         item: ItemStack,
         voicePlayer: VoicePlayer? = null,
-        shouldLoop: Boolean = false
     ): Job = CoroutineScope(Dispatchers.Default).launch {
-
         val track = try {
             audioPlayerManager.getTrack(identifier).await()
         } catch (e: Exception) {
-            // todo: send error to who?
             voicePlayer?.instance?.sendActionBar(
                 McTextComponent.translatable(
                     "pv.addon.discs.actionbar.track_not_found",
@@ -206,7 +204,6 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
             "pv.addon.discs.actionbar.playing", trackName
         )
 
-        // todo: visualize distance to who?
         if (config.distance.visualizeDistance) {
             voicePlayer?.visualizeDistance(
                 pos.toPosition(),
@@ -223,7 +220,6 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         val job = audioPlayerManager.startTrackJob(track, source, distance)
         try {
             var lastTick = System.currentTimeMillis()
-            var loopCount = 0
 
             while (job.isActive) {
                 // every 30 seconds we need to reset record state
@@ -247,11 +243,9 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
                 lastTick = System.currentTimeMillis()
             }
 
-            if (shouldLoop) {
-                loopCount++
-                debugLogger.log("Track completed. Looping: $loopCount times")
-
-                val loopJob = playTrack(identifier, block, item, voicePlayer, true)
+            if (loopingBlocks.contains(block)) {
+                debugLogger.log("Track ended. Restarting track \"$trackName\"")
+                val loopJob = playTrack(identifier, block, item, voicePlayer)
                 jobByBlock[block] = loopJob
             }
         } finally {
