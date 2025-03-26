@@ -97,7 +97,6 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         if (!voicePlayer.instance.hasPermission("pv.addon.discs.play")) return
 
         val identifier = item.customDiscIdentifier() ?: return
-        val isLooping = player.isSneaking
 
         voicePlayer.instance.sendActionBar(
             McTextComponent.translatable("pv.addon.discs.actionbar.loading")
@@ -105,7 +104,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         )
 
         jobByBlock[block]?.cancel()
-        jobByBlock[block] = playTrack(identifier, block, item, voicePlayer, isLooping)
+        jobByBlock[block] = playTrack(identifier, block, item, voicePlayer)
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
