@@ -98,6 +98,8 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
 
         val identifier = item.customDiscIdentifier() ?: return
 
+        loopingBlocks.add(block)
+
         voicePlayer.instance.sendActionBar(
             McTextComponent.translatable("pv.addon.discs.actionbar.loading")
                 .withStyle(McTextStyle.YELLOW)
