@@ -48,6 +48,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
     private val sourceLine: ServerSourceLine by getter()
 
     private val jobByBlock: MutableMap<Block, Job> = ConcurrentHashMap()
+    private val loopingBlocks: MutableSet<Block> = ConcurrentHashMap.newKeySet()
 
     @EventHandler
     fun onChunkLoad(event: ChunkLoadEvent): Unit = with(keys) {
@@ -96,6 +97,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         if (!voicePlayer.instance.hasPermission("pv.addon.discs.play")) return
 
         val identifier = item.customDiscIdentifier() ?: return
+        val isLooping = player.isSneaking
 
         voicePlayer.instance.sendActionBar(
             McTextComponent.translatable("pv.addon.discs.actionbar.loading")
@@ -103,7 +105,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         )
 
         jobByBlock[block]?.cancel()
-        jobByBlock[block] = playTrack(identifier, block, item, voicePlayer)
+        jobByBlock[block] = playTrack(identifier, block, item, voicePlayer, isLooping)
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -149,6 +151,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         block: Block,
         item: ItemStack,
         voicePlayer: VoicePlayer? = null,
+        shouldLoop: Boolean = false
     ): Job = CoroutineScope(Dispatchers.Default).launch {
 
         val track = try {
@@ -220,6 +223,7 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
         val job = audioPlayerManager.startTrackJob(track, source, distance)
         try {
             var lastTick = System.currentTimeMillis()
+            var loopCount = 0
 
             while (job.isActive) {
                 // every 30 seconds we need to reset record state
@@ -241,7 +245,14 @@ class JukeboxEventListener : Listener, PluginKoinComponent {
                     jukebox.update()
                 }
                 lastTick = System.currentTimeMillis()
+            }
 
+            if (shouldLoop) {
+                loopCount++
+                debugLogger.log("Track completed. Looping: $loopCount times")
+
+                val loopJob = playTrack(identifier, block, item, voicePlayer, true)
+                jobByBlock[block] = loopJob
             }
         } finally {
             withContext(NonCancellable) {
